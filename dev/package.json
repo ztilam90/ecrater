@@ -1,0 +1,22 @@
+{
+    "name": "csv",
+    "version": "1.0.0",
+    "main": "main.ts",
+    "license": "MIT",
+    "scripts": {
+        "dev": "node dev.js",
+        "build": "node build.js",
+        "install-all": "npm i && cd src/server && npm i && cd .. && cd client && npm i",
+        "proxy": "node dev/proxy.js"
+    },
+    "devDependencies": {
+        "axios": "^0.24.0",
+        "concurrently": "^6.4.0",
+        "filewatcher": "^3.0.1",
+        "node-html-parser": "^5.2.0",
+        "ts-node": "^10.4.0"
+    },
+    "dependencies": {
+        "proxy-check": "^1.0.8"
+    }
+}

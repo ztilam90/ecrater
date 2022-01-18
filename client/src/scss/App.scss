@@ -1,0 +1,29 @@
+body {
+    background-color: rgb(240, 242, 245);
+    font-family: "Roboto", "Helvetica", "Arial", sans-serif;
+    margin: 0;
+}
+form .MuiFormControl-root {
+    width: 100%;
+    margin: 3px 0 !important;
+}
+.MuiDataGrid-columnSeparator {
+    cursor: e-resize;
+    :focus > svg {
+        color: rebeccapurple;
+    }
+}
+
+.MuiDataGrid-virtualScroller {
+    overflow-x: auto !important;
+}
+.data-grid-no-limit {
+    .MuiDataGrid-row,
+    .MuiDataGrid-cell {
+        max-height: unset !important;
+    }
+}
+a {
+    color: unset;
+    text-decoration: none;
+}
