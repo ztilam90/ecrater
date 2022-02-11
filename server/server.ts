@@ -1,5 +1,6 @@
 import bodyParser from "body-parser";
 import express from "express";
+import { existsSync, rmSync } from "fs";
 import http from "http";
 import path from "path";
 import { Server } from "socket.io";
@@ -9,6 +10,7 @@ import { applySocketIO } from "./socket/socket";
 
 console.log('start app')
 
+export const _mainScriptDir = __dirname
 
 const app = express();
 const server = http.createServer(app);
@@ -30,7 +32,7 @@ app.get('*', (req, res) => {
     res.sendFile(path.resolve(__dirname, './public/index.html'))
 })
 
-
+existsSync('./cache') && rmSync('./cache', { recursive: true })
 
 server.listen(config.port, async () => {
     console.log('listening on ' + config.port)
@@ -38,3 +40,4 @@ server.listen(config.port, async () => {
 
 export type _express = typeof app
 export type _socketIO = typeof io
+

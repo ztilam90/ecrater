@@ -23,21 +23,22 @@ export class UserProvider extends React.Component {
     constructor(props) {
         super(props)
         setSocket()
-        userSession.setUser = (async (user: User, id: string, proxy: any) => {
+        userSession.setUser = async (user: User, id: string, proxy: any) => {
             userSession.user = user;
             userSession.id = id
             userSession.proxy = proxy
             this.setState({})
             setSocket()
             localStorage.setItem('session', JSON.stringify({ ...userSession, socket: '' }))
-        }).bind(this)
-        userSession.removeUser = (async () => {
+        }
+        userSession.removeUser = async () => {
             localStorage.removeItem('session')
             userSession.user = undefined
             userSession.id = ''
-            this.setState({})
+            userSession.socket && userSession.socket.disconnect()
             userSession.socket = undefined
-        }).bind(this)
+            this.setState({})
+        }
     }
     render() {
         return <UserContext.Provider value={this.state as any}>

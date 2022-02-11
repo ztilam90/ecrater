@@ -1,10 +1,9 @@
 // @ts-nocheck
-import { Button } from "@mui/material";
-import { DataGrid as DG, GridToolbarColumnsButton, GridToolbarContainer, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from "@mui/x-data-grid";
+import { DataGrid as DG } from "@mui/x-data-grid";
 import React from "react";
 import { constants } from "../common/constants";
 import { Utils } from "../common/utils";
-import { _DataGridProps } from '../declare'
+import { _DataGridProps } from '../declare';
 export class CDataGrid extends React.Component<_DataGridProps> {
     id = Utils.randomString(20)
     colResize: {
@@ -19,7 +18,6 @@ export class CDataGrid extends React.Component<_DataGridProps> {
             const col = this.colResize.element.col
             this.styles[col] = Math.max(50, e.screenX - this.colResize.screenX + this.colResize.widthResize)
             this.refs.updateStyle.innerHTML = `#${this.id} div.${col}{width: ${this.styles[col]}px !important}`
-            console.log(this.refs.updateStyle.innerHTML)
         },
         mouseUp: () => {
             if (!this.colResize) return
@@ -63,8 +61,9 @@ export class CDataGrid extends React.Component<_DataGridProps> {
     }
     setResizeEvent() {
         const pDiv = document.getElementById(this.id)
+        if (!pDiv) return
         const separator = pDiv.querySelectorAll('.MuiDataGrid-columnSeparator')
-
+        if (!separator) return
         separator.forEach((e: HTMLDivElement) => {
             if (e.col) {
                 e.removeEventListener('mousedown', this.evt.columnSeparatorMouseDown)
@@ -83,10 +82,9 @@ export class CDataGrid extends React.Component<_DataGridProps> {
                 <style ref="updateStyle"></style>
                 <DG
                     density="compact"
-                    localeText={constants.locateTextGridData}
                     checkboxSelection={true}
-
                     {...this.props}
+                    localeText={{ ...constants.locateTextGridData, ...this.props.localeText }}
 
                     onColumnVisibilityChange={() => {
                         setTimeout(this.setResizeEvent.bind(this))

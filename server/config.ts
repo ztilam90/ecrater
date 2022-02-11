@@ -13,7 +13,8 @@ export const config = {
         postBook: '/admin/addprod.php?cid=0&processed=1',
         listProducts: '/admin/products.php?',
         addProducts: '/admin/addprod.php?cid=0&processed=1&',
-        addVariants: (id) => `/admin/pvariants.php?pid=${id}&cid=0&srn=0&attr1=size&`
+        addVariants: (id) => `/admin/pvariants.php?pid=${id}&cid=0&srn=0&attr1=size&`,
+        deleteProduct: (id) => `/admin/delp.php?pid=${id}&cid=0&srn=0`
     },
     mongo: {
         dbName: process.env.MongoDBName || 'ecrater',

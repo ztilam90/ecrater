@@ -7,7 +7,7 @@
         "install-all": "cd dev && npx yarn && cd ../server && npx yarn && cd ../client && npx yarn && cd ..",
         "proxy": "node dev/proxy.js",
         "build": "node dev/build.js",
-        "server": "node dev/server.js",
+        "server": "cd server && npm run start",
         "client": "cd client && npm run start"
     },
     "dependencies": {

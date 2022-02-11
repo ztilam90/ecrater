@@ -1,13 +1,14 @@
-import { Button, Card, FormControl, LinearProgress, TextField, Typography } from '@mui/material';
+import { Button, Card, FormControl, TextField, Typography } from '@mui/material';
 import React, { useRef, useState } from "react";
 import { Navigate } from 'react-router-dom';
 import { ecraterAPI } from '../api/ecrater';
+import { constants } from '../common/constants';
+import { Utils } from '../common/utils';
 import { CAlert } from '../components/CAlert';
 import { userSession } from '../context/UserContext';
-import { Utils } from '../common/utils';
 
 export function Login(props) {
-    const user = { username: 'abcdepot', password: '2Witro5TaV' }
+    const user = constants.isDevMode ? { ...constants.defaultUser } : { username: '', password: '' }
     const alert = Utils.CAlert(useRef())
     const [isLogin, setLogin] = useState(false)
 
@@ -38,7 +39,7 @@ export function Login(props) {
                     <TextField label="Tên đăng nhập" variant="standard" defaultValue={user.username} onChange={(evt) => { user.username = evt.target.value }}></TextField>
                 </FormControl>
                 <FormControl>
-                    <TextField label="Mật khẩu" variant="standard" defaultValue={user.password} onChange={(evt) => { user.password = evt.target.value }}></TextField>
+                    <TextField label="Mật khẩu" variant="standard" defaultValue={user.password} onChange={(evt) => { user.password = evt.target.value }} type="password"></TextField>
                 </FormControl>
                 <Button variant="contained" type="submit" fullWidth sx={{ mt: 2 }} disabled={isLogin}>Đăng nhập</Button>
                 <CAlert ref={alert.alertRef as any}></CAlert>

@@ -5,7 +5,6 @@ import createHttpsProxyAgent from 'https-proxy-agent'
 import { parse } from 'node-html-parser'
 import proxy_check from 'proxy-check'
 import queryString from 'query-string'
-import request from 'request'
 import { utils } from '../common/utils'
 import { config } from '../config'
 import { Proxy, User } from '../declare'
@@ -63,19 +62,20 @@ export const ecraterRequest = {
         const httpsAgent = createHttpsProxyAgent(proxy)
 
         try {
+            console.log('request cookies')
             await ecraterRequest.multipleRequest(async () => {
-                console.log('staPrt request')
                 let loginRequest: AxiosResponse
                 try {
                     loginRequest = await ecraterAxios.post(config.requests.login, userData, {
                         headers: {
                             "Content-Type": ` application/x-www-form-urlencoded`
                         },
-                        httpsAgent: httpsAgent
+                        httpsAgent: httpsAgent,
+                        timeout: 10000,
                     })
                 } catch (error) {
-                    const isDeathProxy = await ecraterRequest.testProxy(proxy)
-                    if (isDeathProxy) throw 'proxy'
+                    const isLiveProxy = await ecraterRequest.testProxy(proxy)
+                    if (!isLiveProxy) throw 'proxy'
                 }
 
                 if (ecraterRequest.checkResponse(loginRequest).auth().status === false) {
@@ -89,7 +89,7 @@ export const ecraterRequest = {
                 await utils.delay(config.delayRequest)
                 return [config.maxCookiesUsage - cookies.length, config.maxRequestSameTime]
             })
-
+            console.log('done request')
             return { status: true, cookies: cookies }
         } catch (error) {
             return { status: false, error: error }
@@ -107,30 +107,34 @@ export const ecraterRequest = {
         await ecraterRequest.multipleRequest(async () => {
             const product = products[indexProducts++]
             if (!product) return
+            if (hasPrevent && hasPrevent()) throw 'interrupt'
             const error = await addProduct(product)
-            events({ done: ++doneRequestCount, total: products.length, error, product })
+            await events({ done: ++doneRequestCount, total: products.length, error, product })
         }, async () => {
             utils.delay(delayTime)
-            return [products.length - doneRequestCount, config.maxRequestSameTime]
+            return [products.length - doneRequestCount, 2]
         })
 
         function addProduct(p) {
             return new Promise<void>(async (resolve, reject) => {
+                if (++cookiesIndex >= cookies.length) cookiesIndex = 0
+                const cookie = cookies[cookiesIndex]
                 try {
                     if (typeof p.images === 'string') p.images = [p.images]
 
                     if (!Array.isArray(p.images)) { throw '[image_url] là bắt buộc' }
-                    const formAddProduct = new FormData()
-                    p.images.forEach(image => formAddProduct.append('ufile[]', request(image.trim())))
-
+                    const formAddProduct = new FormData();
+                    (await Promise.all(p.images.map(image => utils.request(image.trim())))).forEach((resp) => {
+                        formAddProduct.append('ufile[]', resp)
+                    })
                     {
                         p.lcid = p.lcid || '2339981' // local category
                         p.tax = p.tax || '0'
                         p.weight = p.weight || '1'
-                        p.used = p.used || '0' // Condition
+                        p.used = p.used || '0' // Condition  
                         p.shipping = p.shipping || '0'
-                        p.gcid = p.gcid || '64' // Global Category
-                        p.gcid_root = p.gcid_root || '64' // Global Sub Cat
+                        p.gcid = p.gcid || '64' // Global Sub Cat
+                        p.gcid_root = p.gcid_root || '64' // Global Category
                     }
 
                     formAddProduct.append('MAX_FILE_SIZE', '20000000')
@@ -155,9 +159,6 @@ export const ecraterRequest = {
                     formAddProduct.append('flat_rate[3][secondary]', '')
                     formAddProduct.append('addbut_x', 'Add')
 
-                    const length = await utils.getLengthFormData(formAddProduct)
-                    if (++cookiesIndex >= cookies.length) cookiesIndex = 0
-                    const cookie = cookies[cookiesIndex]
 
                     let resp: AxiosResponse
                     try {
@@ -166,10 +167,11 @@ export const ecraterRequest = {
                             headers: {
                                 ...formAddProduct.getHeaders(),
                                 'Content-Type': `multipart/form-data`,
-                                'Content-Length': length + '',
+                                'Content-Length': await utils.getLengthFormData(formAddProduct) + '',
                                 'Cookie': cookie
                             },
-                            httpsAgent: httpsAgent
+                            httpsAgent: httpsAgent,
+                            timeout: 40000
                         })
 
                         let checkResponse = ecraterRequest.checkResponse(resp)
@@ -195,7 +197,7 @@ export const ecraterRequest = {
                         if (Array.isArray(p.variants)) {
                             const formVariants = new FormData()
                             try {
-                                if (p.variants.length === 0) throw 'empty'
+                                if (p.variants.length === 0) throw ''
                                 p.variants.forEach((variant, index) => {
                                     const { size, price, quantity } = variant
 
@@ -206,15 +208,16 @@ export const ecraterRequest = {
                             } catch (error) {
                                 delete p.variants
                             }
-                            console.log('p.variants', p.id, p.variants)
                             if (p.variants) {
                                 formVariants.append('updatebut_x', 'Update')
                                 await utils.delay(config.delayRequest)
-                                resp = await ecraterAxios.post(config.requests.addVariants, formVariants, {
+                                console.log('add variants', p.title)
+                                resp = await ecraterAxios.post(config.requests.addVariants(p.id), formVariants, {
                                     headers: {
                                         ...formVariants.getHeaders(),
-                                        'Content-Length': length + '',
-                                        'Cookie': cookie
+                                        'Content-Length': await utils.getLengthFormData(formVariants) + '',
+                                        'Cookie': cookie,
+                                        timeout: 20000
                                     },
                                     httpsAgent: httpsAgent
                                 })
@@ -236,12 +239,17 @@ export const ecraterRequest = {
         }
     },
     async listProducts(proxy: Proxy, cookies: string[], interupt?: () => boolean) {
-        let cookieIndex = 0
+        let cookieIndex = -1
         const listProduct = []
         let page = 0
         let maxPage
+        const httpsAgent = createHttpsProxyAgent(proxy)
+
         try {
             await ecraterRequest.multipleRequest(async () => {
+                const pageIndex = page++
+                if (++cookieIndex >= cookies.length) cookieIndex = 0
+                const cookie = cookies[cookieIndex]
                 let request: AxiosResponse
                 if (interupt && interupt()) throw 'interupt'
                 try {
@@ -249,18 +257,21 @@ export const ecraterRequest = {
                         headers: {
                             Cookie: cookies[cookieIndex]
                         },
-                        params: { srn: page }
+                        params: { srn: pageIndex },
+                        timeout: 10000,
+                        httpsAgent: httpsAgent
                     })
                 } catch (error) {
-                    const isDeathProxy = await ecraterRequest.testProxy(proxy)
-                    if (isDeathProxy) throw 'proxy'
+                    const isLiveProxy = await ecraterRequest.testProxy(proxy)
+                    if (!isLiveProxy) throw 'proxy'
                     return
                 }
 
-                if (request.status !== 200) return
+                const checkResponse = ecraterRequest.checkResponse(request)
+                if (!checkResponse.auth().status) throw 'login'
+
                 if (maxPage === undefined) {
-                    const size = ecraterRequest.checkResponse(request).listProductSize()
-                    console.log([size, Math.floor((size - 1) / 40) + 1])
+                    const size = checkResponse.listProductSize()
                     if (size === 0) return maxPage = 0
                     else maxPage = Math.floor((size - 1) / 40) + 1
                 }
@@ -276,9 +287,7 @@ export const ecraterRequest = {
                     listProduct.push(product)
                 })
 
-                ++cookieIndex
-                ++page
-                if (cookieIndex >= cookies.length) cookieIndex = 0
+
             }, () => {
                 utils.delay(config.delayRequest)
                 if (maxPage === undefined) return [1]
@@ -292,11 +301,44 @@ export const ecraterRequest = {
             return { status: false, error: error }
         }
     },
-    async deleteProducts(user: User, productsIds: string[], cookies: string[]) {
+    async deleteProducts(productsIds: string[], cookies: string[], proxy: Proxy, events?: (status: { done: number, total: number, error: string, id: string }, error) => void = () => { }) {
+        const httpsAgent = createHttpsProxyAgent(proxy)
+        try {
+            let idIndex = 0
+            let cookieIndex = -1
+            let done = 0
+            let error = 0
+            await ecraterRequest.multipleRequest(async () => {
+                const id = productsIds[idIndex++]
+                if (++cookieIndex >= cookies.length) cookieIndex = 0
+                const cookie = cookies[cookieIndex]
+                let errorMessage
 
+                try {
+                    const request = await ecraterAxios.get(config.requests.deleteProduct(id),
+                        {
+                            headers: {
+                                Cookie: cookie
+                            },
+                            httpsAgent
+                        })
+                    ++done
+                } catch (err) {
+                    errorMessage = err
+                    ++error
+                }
+                events({ done, total: productsIds.length, error, id }, errorMessage)
+
+            }, () => {
+                return [productsIds.length - idIndex, config.maxRequestSameTime]
+            })
+        } catch (error) {
+
+        }
     },
     async testProxy(proxy: Proxy) {
         try {
+            console.log('check proxy')
             const { host, port } = proxy
             const proxyCheck = { host, port } as any
             if (proxy.auth) {
@@ -306,10 +348,12 @@ export const ecraterRequest = {
             await proxy_check(proxyCheck)
             const httpsAgent = createHttpsProxyAgent(proxy)
             const request = await axios.get(config.requests.baseURL, {
-                httpsAgent: httpsAgent
+                httpsAgent: httpsAgent,
+                timeout: 10000
             })
             return true
         } catch (error) {
+            console.log('check proxy failed')
             return false;
         }
     },
@@ -332,6 +376,7 @@ export const ecraterRequest = {
                     promise
                         .then(() => { resolve() })
                         .catch((e) => {
+                            console.log('has error ', error)
                             if (!error) error = e
                             resolve()
                         })

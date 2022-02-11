@@ -1,3 +1,4 @@
+import { Router } from "express"
 import { UserStatus } from "./socket/user-status"
 
 export type User = {
@@ -14,6 +15,9 @@ export type Proxy = {
 export type UserSession = {
     password?: string
     sessionIds: string[],
+    requests: any[],
+    proxy?: Proxy,
+    preventAddProducts: boolean,
     status?: {
         [n: string]: any
     }
@@ -36,3 +40,6 @@ export type _socket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMa
 
 export type AsyncReturnType<T extends (...args: any) => Promise<any>> =
     T extends (...args: any) => Promise<infer R> ? R : any
+
+
+export type _handleRequest = (req?: Request, res?: Response) => any

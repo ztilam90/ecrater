@@ -2,7 +2,7 @@ import axios from 'axios';
 import queryString from 'query-string';
 import { userSession } from '../context/UserContext';
 const axiosClient = axios.create({
-    baseURL: process.env.REACT_APP_BASE_URL,
+    baseURL: process.env.REACT_APP_BASE_URL + '/api',
     headers: {
         'Content-Type': 'application/json'
     },
@@ -15,9 +15,12 @@ axiosClient.interceptors.request.use((config) => {
 });
 
 axiosClient.interceptors.response.use((resp) => {
+    if (resp.data.error === -997) {
+        userSession.removeUser()
+        return resp.data
+    }
     return resp.data
 }, (error) => {
-    console.log()
     const result = {} as any
     if (error.data) result.error = error.data
     else result.error = error

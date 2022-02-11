@@ -1,102 +1,75 @@
-import { Socket } from "socket.io"
-import { utils } from "../common/utils"
-import { UserInfo, _socket } from "../declare"
-import { io } from "../server"
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
+import path from "path";
+import { ecrater } from "../api/ecrater/ecrater";
+import { userSession } from "../api/ecrater/handlers/login";
+import { utils } from "../common/utils";
+import { config } from "../config";
+import { UserInfo, _socket } from "../declare";
+import { io, _mainScriptDir } from "../server";
 
 export function UserStatus(u: UserInfo, socket?: _socket) {
     const { username, user } = u
     function setStatus(key) {
-        return function (v?) {
-            if (v === undefined) delete user.status[key]
-            else user.status[key] = v
-            return result
+        return {
+            set(v?) {
+                if (v === undefined) delete user.status[key]
+                else user.status[key] = v
+                return result
+            },
+            get() {
+                return user.status[key]
+            }
         }
     }
 
     const result = {
         user() { return user },
         initCookies: (() => {
-            const set = setStatus('initCookies')
+            const { set, get } = setStatus('initCookies')
             return {
                 initializing: (status: { done: number, total: number }) => set(status),
                 clear: () => set()
             }
         })(),
         proxy: (() => {
-            const set = setStatus('proxy')
+            const { set, get } = setStatus('proxy')
             return {
-                settingUp: (proxy) => set({
-                    status: 'Đang thiết lập',
-                    prevent: true,
-                    isLoading: true,
-                    proxy: proxy
-                })
-                ,
-                deathProxy: (proxy) => set({
-                    error: 'Proxy không ổn định',
-                    proxy: proxy
-                }),
-                requireProxy: () => set({ status: 'Vui lòng cấu hình proxy' }),
-                valid: (proxy) => set(proxy)
+                deathProxy: (proxy = user.proxy) => {
+                    user.proxy = proxy
+                    return set({ message: 'Proxy không ổn định', error: 1 })
+                },
+                requireProxy: () => set({ message: 'Vui lòng cấu hình proxy', error: -1 }),
+                valid: (proxy = user.proxy) => {
+                    user.proxy = proxy
+                    return set()
+                }
             }
         })(),
         addProducts: (function () {
-            const set = setStatus('addProducts')
+            const { set, get } = setStatus('addProducts')
             return {
                 complete(data?: { done: number, total: number, [n: string]: any } | undefined, failedItem?: any) {
-                    if (!data) {
-                        if (!user.status.addProducts) return result
-                        const { done, total } = user.status.addProducts
-                        if (done === undefined && total === undefined) return result
-                        data = user.status.addProducts
-                    }
-
+                    data = { ...get(), ...data }
                     if (failedItem) {
                         if (!Array.isArray(data.failedItems)) data.failedItems = []
                         data.failedItems.push(failedItem)
                     }
-                    return set({ ...data })
+                    set(data)
+                    return result
                 },
                 clear: () => set()
             }
         })(),
-        getProducts: (() => {
-            const set = setStatus('getProducts')
+        deleteProducts: (() => {
+            const { set, get } = setStatus('deleteProducts')
 
             return {
-                sendProducts: (products) => {
-                    set()
-                    result.send({ getProducts: products })
+                delete: (data) => {
+                    return set(data)
                 },
-                loading: () => result.send({ getProducts: { status: 'Đang xử lí' } }),
+                clear: () => set(),
             }
         })(),
-        startRequest(name = true as string | boolean) {
-            user.status.request = name || true
-        },
-        isPreventRequest() {
-            return user.status.preventRequest !== undefined
-        },
-        waitLastRequest() {
-            if (user.status.request) {
-                if (!user.status.preventRequest)
-                    user.status.preventRequest = new Promise((resolve) => {
-                        user.status.resolveRequest = () => {
-                            result.doneRequest()
-                            resolve('')
-                        }
-                    })
-                return user.status.preventRequest
-            }
-            return
-        },
-        doneRequest() {
-            const { resolveRequest } = user.status
-            delete user.status.request
-            delete user.status.preventRequest
-            delete user.status.resolveRequest
-            if (resolveRequest) resolveRequest()
-        },
         send(items = {}) {
             io.to(username).emit('status', { ...user.status, ...items })
             return result
@@ -125,7 +98,101 @@ export function UserStatus(u: UserInfo, socket?: _socket) {
                 socket.on(questionId, resolve)
                 socket.emit('question', { id: questionId, question: question })
             })
+        },
+        stackRequest<T>(action: () => Promise<T>, delay = true, name = ''): Promise<T> {
+            async function execute() {
+                if (!user.requests || user.requests.length === 0) return
+                const { action, delay, name, resolve, reject } = user.requests[0]
+
+                if (!userSession()[username]) {
+                    reject('login')
+                    delete user.requests
+                    return
+                }
+
+                try {
+                    const result = await action()
+                    if (name) {
+                        user.requests = user.requests.filter(({ name: nameLoopItem, resolve }) => {
+                            if (name === nameLoopItem) {
+                                resolve(result)
+                                return false
+                            }
+                            return true
+                        })
+                    } else {
+                        user.requests.shift()
+                        resolve(result)
+                    }
+                } catch (error) {
+                    if (name) {
+                        user.requests = user.requests.filter(({ name: nameLoopItem, reject }) => {
+                            if (name === nameLoopItem) {
+                                reject(error)
+                                return false
+                            }
+                            return true
+                        })
+                    } else {
+                        user.requests.shift()
+                        reject(error)
+                    }
+                }
+
+
+                if (user.requests.length === 0) {
+                    delete user.requests
+                } else {
+                    if (delay) utils.delay(config.delayRequest)
+                    execute()
+                }
+            }
+
+            return new Promise((resolve, reject) => {
+                if (!user.requests) user.requests = []
+
+                user.requests.push({ action, delay, name, resolve, reject })
+
+                if (user.requests.length === 1) {
+                    execute()
+                }
+            })
+        },
+        async getCookies() {
+            const cookies = await ecrater.initCookies(u, result, false)
+            if (!cookies) throw 'login'
+            return cookies
+        },
+        async readField(field, promiseOrCallback, time = 3000) {
+            const pathField = path.join(_mainScriptDir, 'cache', username, field)
+            if (existsSync(pathField)) {
+                return JSON.parse(readFileSync(pathField, { encoding: 'utf-8' })).data
+            } else {
+                const data = typeof promiseOrCallback === 'function' ? await promiseOrCallback() : await promiseOrCallback
+                if (!data) return data
+                return result.writeField(field, data, time)
+            }
+        },
+        clearField(field) {
+            const pathField = path.join(_mainScriptDir, 'cache', username, field)
+            if (existsSync(pathField)) {
+                rmSync(pathField)
+            }
+        },
+        writeField(field, data = {}, time = 3000) {
+            const userCachePath = path.join(_mainScriptDir, 'cache', username)
+            const pathFieldPath = path.join(userCachePath, field)
+            if (!existsSync(userCachePath)) mkdirSync(path.join(userCachePath), { recursive: true })
+            writeFileSync(pathFieldPath, JSON.stringify({ data }), { encoding: 'utf-8' })
+            setTimeout(() => {
+                try {
+                    result.clearField(field)
+                } catch (error) { }
+            }, time)
+
+            return data
         }
     }
+
     return result
 }

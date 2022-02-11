@@ -1,47 +1,72 @@
 import { Add, Delete, Sync } from "@mui/icons-material";
-import { Button, Typography } from "@mui/material";
+import { Alert, Button, Typography } from "@mui/material";
 import { GridToolbarColumnsButton, GridToolbarContainer, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from "@mui/x-data-grid";
 import React from "react";
-import CSVReader from "react-csv-reader";
-import { Link, Navigate } from "react-router-dom";
-import { Utils } from "../../common/utils";
+import { ecraterAPI } from "../../api/ecrater";
 import { CDataGrid } from "../../components/CDataGrid";
 import { CDropdownButton } from "../../components/CDropdownButton";
 import { socketStatus } from "../../context/SocketContext";
-import { socketAction } from "../../socket/socket";
-import { _ecraterAPI } from "./Ecrater";
+import { EcraterNavigate } from "./Ecrater";
 
-export class ListProducts extends React.Component<{ ecraterAPI: _ecraterAPI }> {
-    isGettingData = false
+export class ListProducts extends React.Component<any, ListProductsState> {
+    state: ListProductsState = {
+        products: undefined,
+        message: '',
+        isLoading: false,
+        error: false
+    }
+    idsSelected = []
+    waitDeleteComplete
 
-    componentDidMount(): void {
-        if (!socketStatus.status.getProducts) {
-            socketAction.getProducts()
+    async componentDidMount() {
+        if (socketStatus.status.initCookies) return
+        if (socketStatus.status.deleteProducts) {
+            this.waitReload()
+        } else {
+            this.reload()
         }
     }
 
-    componentDidUpdate(prevProps: Readonly<{}>, prevState: Readonly<{}>, snapshot?: any): void {
-        console.log('update', this.convertProducts())
+    async reload() {
+        if (!this.state.isLoading) {
+            this.setState({ isLoading: true, products: [] })
+            const { error, message, data: products } = await ecraterAPI.getAllProducts()
+            if (!error) {
+                this.setState({ products, error: false, isLoading: false })
+            } else {
+                this.setState({ error, message: `${message}`, isLoading: false })
+            }
+        }
+    }
+    waitReload() {
+        if (this.waitDeleteComplete) return
+
+        this.waitDeleteComplete = setInterval(() => {
+            if (socketStatus.status.deleteProducts) return
+            clearTimeout(this.waitDeleteComplete)
+            this.waitDeleteComplete = undefined
+            this.reload()
+        }, 100)
     }
 
+    componentWillUnmount() {
+        clearTimeout(this.waitDeleteComplete)
+    }
     render() {
+        const { isLoading, products, error, message } = this.state
         return <>
-            {socketStatus.status.addProducts && <Navigate to={'/ecrater/upload-products'} replace={false} />}
+            <EcraterNavigate />
             <div style={{ height: 600, width: '100%' }} >
+                {error && <Alert severity="error">{message}</Alert>}
                 <CDataGrid
-                    rows={this.convertProducts() || []}
+                    rows={products || []}
                     columns={[
-                        { field: 'id', headerName: 'ID', hide: true, },
-                        { field: 'title', headerName: 'Tiêu đề', },
-                        {
-                            field: 'image', headerName: 'Ảnh', renderCell: ({ value }) => {
-                                return <img src={value} style={{ objectFit: 'contain', width: 50, margin: 'auto' }}></img>
-                            }
-                        },
+                        { field: 'id', headerName: 'ID', hide: true },
+                        { field: 'title', headerName: 'Tiêu đề', width: 300 },
                         { field: 'price', headerName: 'Giá' },
                         {
-                            field: 'isSync', headerName: 'Đồng bộ', renderCell: ({ value }) => <Typography {...{
-                                ...value ? { color: 'green', children: 'Rồi' } : { color: 'red', children: 'Chưa' }
+                            field: 'sync', headerName: 'Đồng bộ', renderCell: ({ value }) => <Typography {...{
+                                ...(value === true) ? { color: 'green', children: 'Rồi' } : { color: 'red', children: 'Chưa' }
                             }} />
                         },
                     ]}
@@ -52,35 +77,43 @@ export class ListProducts extends React.Component<{ ecraterAPI: _ecraterAPI }> {
                             <GridToolbarDensitySelector />
                             <GridToolbarExport />
                             <CDropdownButton
-                                button={['Thêm']}
+                                button={['Khác']}
                                 menu={({ menu, divider, link }) => {
                                     return [
                                         link('/ecrater/upload-products', 'Upload từ CSV', <Add />),
                                         menu('Đồng bộ', <Sync />, 'sync'),
+                                        menu('Xóa', <Delete />, 'delete'),
                                         divider(),
                                         menu('Đồng bộ sâu', <Sync />, 'deepSync', { disabled: true }),
                                     ]
                                 }}
+                                onSelect={({ value }) => {
+                                    if (value === 'delete') {
+                                        this.idsSelected.length && ecraterAPI.deleteProducts(this.idsSelected).then(() => {
+                                            this.waitReload()
+                                        })
+                                    }
+                                }}
                             />
+                            <Button sx={{ mr: 2, ml: 'auto' }} size="small" color="success" variant="contained" onClick={this.reload.bind(this)}>
+                                Tải lại
+                            </Button>
                         </GridToolbarContainer>
                     }}
                     onSelectionModelChange={(model, details) => {
-                        console.log(model, details)
+                        this.idsSelected = model
                     }}
                     density="compact"
+                    loading={isLoading}
                 />
             </div>
         </>
     }
+}
 
-    convertProducts() {
-        const products = (socketStatus.status.getProducts || {})
-        const { ecrater, server } = (products.products || { ecrater: [], server: [] })
-        const productsMap = {} as any
-        ecrater.forEach((p) => {
-            productsMap[p.id] = p
-            p.isSync = false
-        })
-        return Object.values(productsMap)
-    }
+type ListProductsState = {
+    products: any;
+    message: string;
+    isLoading: boolean;
+    error: any;
 }

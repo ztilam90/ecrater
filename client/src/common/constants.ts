@@ -71,5 +71,7 @@ export const constants = {
         treeDataExpand: "see children",
         treeDataCollapse: "hide children",
         MuiTablePagination: {}
-    }
+    },
+    isDevMode: process.env.NODE_ENV === 'development',
+    defaultUser: JSON.parse(process.env.REACT_APP_DEFAULT_USER || '{}')
 }

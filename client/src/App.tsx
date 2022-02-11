@@ -9,7 +9,7 @@ import './scss/App.scss';
 
 export function App() {
     return <>
-        <BrowserRouter>
+        <BrowserRouter window={window}>
             <ContextProvider>
                 <UserContext.Consumer>
                     {() =>

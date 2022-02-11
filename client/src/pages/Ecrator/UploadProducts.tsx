@@ -1,88 +1,85 @@
 import { Upload } from "@mui/icons-material"
-import { Box, Button } from "@mui/material"
+import { Alert, Button } from "@mui/material"
 import { GridToolbarContainer } from "@mui/x-data-grid"
-import { useEffect, useRef, useState } from "react"
+import React from "react"
 import CSVReader from "react-csv-reader"
+import { ecraterAPI } from "../../api/ecrater"
 import { Utils } from "../../common/utils"
 import { CDataGrid } from "../../components/CDataGrid"
-import { socketStatus } from "../../context/SocketContext"
-import { socketAction } from "../../socket/socket"
+import { SocketContext, socketStatus } from "../../context/SocketContext"
+import { ConvertScript, defaultConvertMethod } from "./ConvertScript"
+import { EcraterNavigate } from "./Ecrater"
+import { UploadProcessRouter } from "./UploadProcess"
 
-export function UploadProducts() {
-    let [products, setProducts] = useState([])
-    let [failedItems, setFailedItems] = useState(getFailedItems())
-    const [isFileSelected, setFileSelected] = useState(false)
-    const [inputId] = useState(Utils.randomString(10))
-    const [isUploadComplete, setUploadComplete] = useState(false)
-    const headers = [
+export class UploadProducts extends React.Component<any, UploadProductsState> {
+    inputId = Utils.randomString()
+    state: UploadProductsState = {
+        products: [],
+        isFileSelected: false,
+        convertMethod: undefined
+    }
+
+    static headers = [
         { field: 'title', headerName: 'Tiêu đề', width: 200 },
         {
             field: 'description', headerName: 'Mô tả', renderCell: (v) => {
-                return <div dangerouslySetInnerHTML={{ __html: v.value.replace(/\[/g, '<').replace(/\]/g, '>') }}></div>
+                return <div dangerouslySetInnerHTML={{ __html: v.value && v.value.replace(/\[/g, '<').replace(/\]/g, '>') }}></div>
             }, width: 200
         },
         { field: 'price', headerName: 'Giá' },
         { field: 'quantity', headerName: 'Số lượng' },
-        { field: 'taxable', headerName: 'Thuế' }
+        { field: 'tax', headerName: 'Thuế' }
     ]
+    render() {
+        const { state: s } = this
+        const products = this.convertCSV(s.products)
 
-    return <div style={{ height: 600 }} className="data-grid-no-limit">
-        {(failedItems || socketStatus.status.addProducts)
-            ? (() => {
-                return <CDataGrid
-                    sx={{ overflowX: 'unset !important' as any }}
-                    columns={[...headers, {
-                        field: 'error', headerName: 'Lỗi'
-                    }]}
-                    rows={(failedItems || []).map(({ product, error }) => { return { ...product, error } })}
-                    loading={isUploadComplete}
-                    components={{
-                        Toolbar: () => <Box sx={{ width: '100%' }}>
-                            <Button color="error">Hủy</Button>
-                            <div>{socketStatus.status.addProducts && (socketStatus.status.addProducts.done + ' => ' + socketStatus.status.addProducts.total)}</div>
-                        </Box>
-                    }}
-                >
-
-                </CDataGrid>
-            })()
-            : <>
-                <CSVReader inputId={inputId} inputStyle={{ width: 0, height: 0 }} onFileLoaded={(data) => {
-                    setProducts(convertCSV(data))
-                    setFileSelected(true)
-                }} />
-
-                <CDataGrid
-                    sx={{ overflowX: 'unset !important' as any }}
-                    columns={headers}
-                    rows={products}
-                    checkboxSelection={false}
-                    components={{
-                        Toolbar: () => <GridToolbarContainer>
+        return <div style={{ height: 600 }} className="data-grid-no-limit">
+            <EcraterNavigate />
+            <SocketContext.Consumer>
+                {() => {
+                    if (socketStatus.status.addProducts) return UploadProcessRouter.navigate()
+                }}
+            </SocketContext.Consumer>
+            <CSVReader inputId={this.inputId} inputStyle={{ width: 0, height: 0 }} onFileLoaded={(data) => {
+                this.setState({ products: data, isFileSelected: true })
+            }} />
+            <CDataGrid
+                sx={{ overflowX: 'unset !important' as any }}
+                columns={UploadProducts.headers}
+                rows={products}
+                checkboxSelection={false}
+                components={{
+                    Toolbar: () => <GridToolbarContainer>
+                        <Button onClick={() => {
+                            console.log('click')
+                            console.log(this.inputId)
+                            const input: HTMLInputElement = document.getElementById(this.inputId) as any
+                            input && input.click()
+                        }}><Upload />Chọn file csv</Button>
+                        {
+                            s.isFileSelected &&
                             <Button onClick={() => {
-                                const input: HTMLInputElement = document.getElementById(inputId) as any
-                                console.log(input)
-                                input && input.click()
-                            }}><Upload />Chọn file csv</Button>
-                            {
-                                isFileSelected &&
-                                <Button onClick={() => {
-                                    socketAction.uploadProducts(products)
-                                    setFailedItems([])
-                                    setUploadComplete(false)
-                                }}><Upload />Upload</Button>
-                            }
-                        </GridToolbarContainer>
-                    }}
-                />
-            </>
-        }
-    </div>
-
-    function convertCSV(products: any[]) {
+                                ecraterAPI.addProducts(this.convertCSV(this.state.products))
+                            }}><Upload />Upload</Button>
+                        }
+                        <ConvertScript products={s.products}
+                            script={s.convertMethod ? s.convertMethod.toString() : ''}
+                            onApplyScript={(script) => {
+                                var convert
+                                eval(script)
+                                this.setState({ convertMethod: convert })
+                            }}
+                        />
+                    </GridToolbarContainer>
+                }}
+            />
+        </div>
+    }
+    convertCSV(products: any[]) {
         const result = []
         const p0 = products[0]
-
+        const method = this.state.convertMethod || defaultConvertMethod
         for (let i = 1; i <= products.length; i++) {
             const p = products[i] || []
             let pConvert = {} as any
@@ -94,28 +91,24 @@ export function UploadProducts() {
                     pConvert = undefined
                     continue
                 }
-                pConvert[p0[i]] = p0[i] !== 'images' ? value : value.split(',')
+                pConvert[p0[i]] = value
             }
 
             if (pConvert) {
-                pConvert.variants = [
-                    { size: 's', price: '10', quantity: 20 },
-                    { size: 'm', price: '20', quantity: 20 },
-                ]
                 pConvert.id = i
-                console.log(pConvert)
                 result.push(pConvert)
             }
         }
-        return result
-    }
 
-    function getFailedItems() {
-        console.log('getFailedItems')
-        const { status } = socketStatus.status
-        if (!status) return
-        const { addProducts } = status
-        if (!addProducts) return
-        if (addProducts) return addProducts.failedItems || failedItems || []
+        return method(result)
     }
 }
+
+export const UploadProductsRouter = Utils.router(UploadProducts, '/upload-products', '/ecrater')
+
+interface UploadProductsState {
+    products: any[];
+    isFileSelected: boolean;
+    convertMethod: (val: any) => any;
+}
+

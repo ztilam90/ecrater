@@ -1,5 +1,6 @@
 import { AlertColor, LinearProgress } from "@mui/material"
-import React, { RefObject, useEffect, useRef, useState } from "react"
+import React, { RefObject, useEffect, useRef } from "react"
+import { Link, Navigate, Route, useLocation, useNavigate, useParams } from "react-router-dom"
 import { CAlert } from '../components/CAlert'
 
 export const Utils = {
@@ -29,11 +30,38 @@ export const Utils = {
             result += characters.charAt(Math.floor(Math.random() * charactersLength));
         }
         return result;
+    },
+    router(component, URL, parentURL = '') {
+        return {
+            router: () => <Route path={URL} element={React.createElement(component)}></Route>,
+            navigate: () => {
+                return window.location.href !== (parentURL + URL) && <Navigate to={parentURL + URL}></Navigate>
+            },
+            isCurrentURL: () => {
+                return window.location.pathname === (parentURL + URL)
+            },
+            link: (child = parentURL + URL) => <Link to={parentURL + URL}>{child}</Link>
+        }
+    },
+    withRouter(Component) {
+        function ComponentWithRouterProp(props) {
+            let location = useLocation();
+            let navigate = useNavigate();
+            let params = useParams();
+            return (
+                <Component
+                    {...props}
+                    router={{ location, navigate, params }}
+                />
+            );
+        }
+
+        return ComponentWithRouterProp;
     }
 }
 
 class CAlertUtils {
-    alertRef: RefObject<CAlert>
+    alertRef: RefObject<CAlert> | any
 
     private die() {
         if (!this.alertRef.current) return true
