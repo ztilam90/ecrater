@@ -24,6 +24,7 @@ router.post('/login', ecraterValidator.login, async (req, res) => {
     const data = await ecraterRequest.userLogin(req.body) as any
     // login thành công
     if (data.status === true) {
+        console.log('login success:', req.body.username)
         const { username, password } = req.body
         let user = userSession()[username]
 

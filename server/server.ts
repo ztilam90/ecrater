@@ -2,8 +2,11 @@ import bodyParser from "body-parser";
 import express from "express";
 import { existsSync, rmSync } from "fs";
 import http from "http";
+import { MongoClient } from "mongodb";
 import path from "path";
+import { exit } from "process";
 import { Server } from "socket.io";
+import { utils } from "./common/utils";
 import { config } from "./config";
 import { applyRouter } from "./router";
 import { applySocketIO } from "./socket/socket";
@@ -36,6 +39,14 @@ existsSync('./cache') && rmSync('./cache', { recursive: true })
 
 server.listen(config.port, async () => {
     console.log('listening on ' + config.port)
+});
+
+MongoClient.connect(config.mongo.url, function (err, client) {
+    if (err) {
+        console.error('Cannot connect to mongodb')
+        exit(1)
+    }
+    client.close();
 });
 
 export type _express = typeof app

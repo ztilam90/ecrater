@@ -15,7 +15,9 @@ const ecraterAxios = axios.create({
     headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36',
         'Connection': 'keep-alive',
-        'Origin': 'https://www.ecrater.com'
+        'Origin': 'https://www.ecrater.com',
+        'Sec-Fetch-Site': 'same-origin',
+        'Cache-Control': 'max-age=0'
     }
 })
 
@@ -35,7 +37,8 @@ export const ecraterRequest = {
 
             loginRequest = await ecraterAxios.post(config.requests.login, userData, {
                 headers: {
-                    "Content-Type": ` application/x-www-form-urlencoded`
+                    "Content-Type": ` application/x-www-form-urlencoded`,
+                    "Referer": "https://www.ecrater.com/login.php"
                 },
             })
 
@@ -46,7 +49,9 @@ export const ecraterRequest = {
         }
 
         const authStatus = ecraterRequest.checkResponse(loginRequest).auth()
-        if (authStatus.status === false) return { ...authStatus, error: 'Đăng nhập thất bại' }
+        if (authStatus.status === false) {
+            return { ...authStatus, error: 'Đăng nhập thất bại' }
+        }
 
         const cookie = loginRequest.request._redirectable._options.query + ';'
 
