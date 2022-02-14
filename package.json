@@ -4,7 +4,7 @@
     "main": "main.ts",
     "license": "MIT",
     "scripts": {
-        "install-all": "cd dev && npx yarn && cd ../server && npx yarn && cd ../client && npx yarn && cd ..",
+        "install-all": "npm i && cd dev && npx yarn && cd ../server && npx yarn && cd ../client && npx yarn && cd ..",
         "proxy": "node dev/proxy.js",
         "build": "node dev/build.js",
         "server": "cd server && npm run start",

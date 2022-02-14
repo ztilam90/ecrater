@@ -95,6 +95,7 @@ function waitClearUserSession() {
     }, time)
 }
 
+// cái này dev mode dùng thôi nên không cần chú ý nhiều // dể đỡ phải login :V
 if (config.isDevMode) {
     setTimeout(async () => {
 
