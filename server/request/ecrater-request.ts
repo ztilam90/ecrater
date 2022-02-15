@@ -143,6 +143,7 @@ export const ecraterRequest = {
                         p.shipping = p.shipping || '0'
                         p.gcid = p.gcid || '64' // Global Sub Cat
                         p.gcid_root = p.gcid_root || '64' // Global Category
+                        p.quantity = p.quantity || '64' // Global Category
                     }
 
                     formAddProduct.append('MAX_FILE_SIZE', '20000000')
@@ -153,7 +154,7 @@ export const ecraterRequest = {
                     formAddProduct.append('lcid', p.lcid)
                     formAddProduct.append('gcid_root', p.gcid_root || '0')
                     formAddProduct.append('tax', p.tax)
-                    formAddProduct.append('qty', p.quantity)
+                    formAddProduct.append('qty', p.quantity || 1)
                     formAddProduct.append('weight', p.weight)
                     formAddProduct.append('used', p.used)
                     formAddProduct.append('shipping', p.shipping)

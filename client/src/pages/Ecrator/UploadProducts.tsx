@@ -111,7 +111,13 @@ export class UploadProducts extends React.Component<any, UploadProductsState> {
                 this.alert.errorAlert('Lỗi khi thực thi script chuyển đổi: ' + (typeof e === 'string' ? e : e.message))
             })
         }
-        return result
+        if (!Array.isArray(result)) return []
+
+        return result.filter((product, index) => {
+            if (typeof product !== 'object' || !product) return false
+            if (!product.id) product.id = index
+            return true
+        })
     }
 }
 
