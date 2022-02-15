@@ -18,7 +18,8 @@ const ecraterAxios = axios.create({
         'Origin': 'https://www.ecrater.com',
         'Sec-Fetch-Site': 'same-origin',
         'Cache-Control': 'max-age=0'
-    }
+    },
+    timeout: 10000,
 })
 
 export const ecraterRequest = {
