@@ -161,7 +161,7 @@ export class ConvertScript extends React.Component<ConvertScriptProps> {
     generateTypescript() {
         const p0 = this.props.products[0]
         const listKey = p0 || []
-        const keyType = listKey.map((key) => `${key}: string`).join(';\n')
+        const keyType = listKey.map((key) => `"${key}": string`).join(';\n')
         return [
             `declare type _product={\n${keyType};\n [n: string]: any\n}`,
             `declare var convert: (products: _product[])=>_productResult`,
