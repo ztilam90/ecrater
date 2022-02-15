@@ -10,7 +10,6 @@ export const deleteProducts: HandleEcraterAPI = async ({ userStatus, userInfo, u
     rapi.success()
     userStatus.stackRequest(() => ecraterRequest.deleteProducts(ids, cookies, proxy, (data, err) => {
         userStatus.deleteProducts.delete(data).send()
-        console.log('err: ', err)
         if (!err) {
             utils.mongoDB(async ({ userConfig }) => {
                 await userConfig.updateOne({ name: username }, {
@@ -21,5 +20,4 @@ export const deleteProducts: HandleEcraterAPI = async ({ userStatus, userInfo, u
     })).finally(() => {
         userStatus.deleteProducts.clear().send()
     })
-
 }

@@ -169,7 +169,6 @@ export const ecraterRequest = {
                     formAddProduct.append('flat_rate[3][secondary]', '')
                     formAddProduct.append('addbut_x', 'Add')
 
-
                     let resp: AxiosResponse
                     try {
                         // add products
@@ -208,12 +207,15 @@ export const ecraterRequest = {
                             const formVariants = new FormData()
                             try {
                                 if (p.variants.length === 0) throw ''
-                                p.variants.forEach((variant, index) => {
+                                let index = 0;
+                                p.variants.forEach((variant) => {
+                                    if (!variant) return
+                                    ++index
                                     const { size, price, quantity } = variant
 
                                     formVariants.append(`size[${index}]`, size)
                                     formVariants.append(`price[${index}]`, price)
-                                    formVariants.append(`qty[${index}]`, quantity)
+                                    formVariants.append(`qty[${index}]`, quantity || 1)
                                 })
                             } catch (error) {
                                 delete p.variants
@@ -221,7 +223,6 @@ export const ecraterRequest = {
                             if (p.variants) {
                                 formVariants.append('updatebut_x', 'Update')
                                 await utils.delay(config.delayRequest)
-                                console.log('add variants', p.title)
                                 resp = await ecraterAxios.post(config.requests.addVariants(p.id), formVariants, {
                                     headers: {
                                         ...formVariants.getHeaders(),
@@ -388,7 +389,6 @@ export const ecraterRequest = {
                     promise
                         .then(() => { resolve() })
                         .catch((e) => {
-                            console.log('has error ', error)
                             if (!error) error = e
                             resolve()
                         })
