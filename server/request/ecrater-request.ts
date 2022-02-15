@@ -65,10 +65,12 @@ export const ecraterRequest = {
         })
         const cookies = []
         const httpsAgent = createHttpsProxyAgent(proxy)
-
+        let failedCount = 0
+        const failedMax = 6
         try {
             console.log('request cookies')
             await ecraterRequest.multipleRequest(async () => {
+                if (failedCount > failedMax) throw 'proxy'
                 let loginRequest: AxiosResponse
                 try {
                     loginRequest = await ecraterAxios.post(config.requests.login, userData, {
@@ -81,6 +83,7 @@ export const ecraterRequest = {
                 } catch (error) {
                     const isLiveProxy = await ecraterRequest.testProxy(proxy)
                     if (!isLiveProxy) throw 'proxy'
+                    ++failedCount
                 }
 
                 if (ecraterRequest.checkResponse(loginRequest).auth().status === false) {
@@ -271,7 +274,6 @@ export const ecraterRequest = {
                     if (!isLiveProxy) throw 'proxy'
                     return
                 }
-
                 const checkResponse = ecraterRequest.checkResponse(request)
                 if (!checkResponse.auth().status) throw 'login'
 

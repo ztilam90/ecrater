@@ -4,17 +4,17 @@ import { Router } from "express";
 import { utils } from "../../../common/utils";
 import { UserSessionList } from "../../../declare";
 import { ecraterRequest } from '../../../request/ecrater-request';
-import { io } from "../../../server";
+import { io, _mainScriptDir } from "../../../server";
 import { UserStatus } from "../../../socket/user-status";
 import { ecraterValidator } from "../../../validator/ecrater-validator";
 import { ecrater } from "../ecrater";
 import { config } from '../../../config';
+import { existsSync, rmdirSync } from 'fs';
+import path from 'path';
 
 let _userSession = {}
 
 export const userSession: () => UserSessionList = () => _userSession
-
-waitClearUserSession()
 
 const router = Router()
 
@@ -82,7 +82,10 @@ router.post('/login', ecraterValidator.login, async (req, res) => {
     res.json(data).end()
 })
 
-function waitClearUserSession() {
+export function waitClearUserSession() {
+    _userSession = {}
+    existsSync(path.join(_mainScriptDir, 'cache')) && rmdirSync(path.join(_mainScriptDir, 'cache'), { recursive: true })
+
     const date = new Date()
     date.setUTCDate(date.getUTCDate() + 1)
     date.setUTCHours(0, 0, 0, 0)
@@ -91,7 +94,6 @@ function waitClearUserSession() {
     console.log('next time clear: ', [(new Date((new Date).getTime() + time).toUTCString())])
 
     setTimeout(() => {
-        _userSession = {}
         waitClearUserSession()
     }, time)
 }

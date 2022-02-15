@@ -24,11 +24,11 @@ export const getProducts: HandleEcraterAPI = async ({ rapi, userInfo, body, user
 
     const productsMap = products.reduce((pre, { id }, index) => { pre[id] = index; return pre; }, {})
 
-
     return rapi.success([
         ...products,
         ...ecraterProducts.filter((product) => {
             const index = productsMap[product.id]
+            console.log(product.id)
             if (index === undefined) {
                 product.sync = false
                 return true

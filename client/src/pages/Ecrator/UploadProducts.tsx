@@ -1,10 +1,11 @@
 import { Upload } from "@mui/icons-material"
 import { Alert, Button } from "@mui/material"
 import { GridToolbarContainer } from "@mui/x-data-grid"
-import React from "react"
+import React, { createRef } from "react"
 import CSVReader from "react-csv-reader"
 import { ecraterAPI } from "../../api/ecrater"
 import { Utils } from "../../common/utils"
+import { CAlert } from "../../components/CAlert"
 import { CDataGrid } from "../../components/CDataGrid"
 import { SocketContext, socketStatus } from "../../context/SocketContext"
 import { ConvertScript, defaultConvertMethod } from "./ConvertScript"
@@ -13,10 +14,13 @@ import { UploadProcessRouter } from "./UploadProcess"
 
 export class UploadProducts extends React.Component<any, UploadProductsState> {
     inputId = Utils.randomString()
+    alertRef = createRef()
+    alert = Utils.CAlert(this.alertRef)
     state: UploadProductsState = {
         products: [],
         isFileSelected: false,
-        convertMethod: undefined
+        convertMethod: undefined,
+        errorScript: false
     }
 
     static headers = [
@@ -35,6 +39,7 @@ export class UploadProducts extends React.Component<any, UploadProductsState> {
         const products = this.convertCSV(s.products)
 
         return <div style={{ height: 600 }} className="data-grid-no-limit">
+            <CAlert ref={this.alertRef as any} />
             <EcraterNavigate />
             <SocketContext.Consumer>
                 {() => {
@@ -77,7 +82,7 @@ export class UploadProducts extends React.Component<any, UploadProductsState> {
         </div>
     }
     convertCSV(products: any[]) {
-        const result = []
+        let result = []
         const p0 = products[0]
         const method = this.state.convertMethod || defaultConvertMethod
         for (let i = 1; i <= products.length; i++) {
@@ -99,8 +104,14 @@ export class UploadProducts extends React.Component<any, UploadProductsState> {
                 result.push(pConvert)
             }
         }
-
-        return method(result)
+        try {
+            result = method(result)
+        } catch (e) {
+            setTimeout(() => {
+                this.alert.errorAlert('Lỗi khi thực thi script chuyển đổi: ' + (typeof e === 'string' ? e : e.message))
+            })
+        }
+        return result
     }
 }
 
@@ -109,6 +120,7 @@ export const UploadProductsRouter = Utils.router(UploadProducts, '/upload-produc
 interface UploadProductsState {
     products: any[];
     isFileSelected: boolean;
-    convertMethod: (val: any) => any;
+    convertMethod: (val: any) => any
+    errorScript: any
 }
 

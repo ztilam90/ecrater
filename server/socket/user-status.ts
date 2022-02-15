@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import path from "path";
 import { ecrater } from "../api/ecrater/ecrater";
 import { userSession } from "../api/ecrater/handlers/login";
@@ -176,7 +176,7 @@ export function UserStatus(u: UserInfo, socket?: _socket) {
         clearField(field) {
             const pathField = path.join(_mainScriptDir, 'cache', username, field)
             if (existsSync(pathField)) {
-                rmSync(pathField)
+                unlinkSync(pathField)
             }
         },
         writeField(field, data = {}, time = 3000) {
