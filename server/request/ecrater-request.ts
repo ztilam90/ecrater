@@ -254,9 +254,11 @@ export const ecraterRequest = {
         let page = 0
         let maxPage
         const httpsAgent = createHttpsProxyAgent(proxy)
-
+        let failedCount = 0
+        const failedMax = 2
         try {
             await ecraterRequest.multipleRequest(async () => {
+                if (failedCount > failedMax) throw 'proxy'
                 const pageIndex = page++
                 if (++cookieIndex >= cookies.length) cookieIndex = 0
                 const cookie = cookies[cookieIndex]
@@ -272,6 +274,7 @@ export const ecraterRequest = {
                         httpsAgent: httpsAgent
                     })
                 } catch (error) {
+                    ++failedCount
                     const isLiveProxy = await ecraterRequest.testProxy(proxy)
                     if (!isLiveProxy) throw 'proxy'
                     return
